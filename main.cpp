@@ -10,7 +10,12 @@
 //                         int capacity, int minX, int maxX, int minY, int
 //                         maxY);
 
-int main() {
+int main(int argc, char **argv) {
+  int size = 10000; // valore default
+
+  if (argc > 1) {
+    size = std::atoi(argv[1]);
+  }
   // Initialization
   //--------------------------------------------------------------------------------------
   InitWindow(0, 0, "Boid Simulation");
@@ -24,7 +29,6 @@ int main() {
   int maxX = GetScreenWidth() - margin;
   int minY = margin;
   int maxY = GetScreenHeight() - margin;
-  int size = 20000;
   printf("SCREEN_WIDTH %d\n", SCREEN_WIDTH);
   printf("SCREEN_HEIGHT %d\n", SCREEN_HEIGHT);
   //--------------------------------------------------------------------------------------
@@ -57,7 +61,24 @@ int main() {
 
     DrawRectangleLines(margin, margin, GetScreenWidth() - margin * 2,
                        GetScreenHeight() - margin * 2,
-                       RAYWHITE); // NOTE: Uses QUADS internally, not lines
+                       DARKGRAY); // NOTE: Uses QUADS internally, not lines
+    DrawFPS(10, 10);
+
+    char paramsText[256];
+    std::snprintf(paramsText, sizeof(paramsText),
+                  "visualRange: %.1f  turnFactor: %.2f  protectedRange: %.1f",
+                  grid.visualRange, grid.turnFactor, grid.protectedRange);
+    DrawText(paramsText, 10, 35, 20, RAYWHITE);
+
+    std::snprintf(
+        paramsText, sizeof(paramsText),
+        "centeringFactor: %.3f  avoidFactor: %.2f  matchingFactor: %.2f",
+        grid.centeringFactor, grid.avoidFactor, grid.matchingFactor);
+    DrawText(paramsText, 10, 60, 20, RAYWHITE);
+
+    std::snprintf(paramsText, sizeof(paramsText), "maxSpeed: %d  minSpeed: %d",
+                  grid.maxSpeed, grid.minSpeed);
+    DrawText(paramsText, 10, 85, 20, RAYWHITE);
     //
     const size_t n = boids.size();
     std::vector<float> xpos_avg(n, 0.0f);
@@ -93,7 +114,7 @@ int main() {
       Vector2 baseLeft = {x - halfBase, y + height};
       Vector2 baseRight = {x + halfBase, y + height};
 
-      DrawTriangle(apex, baseLeft, baseRight, RAYWHITE);
+      DrawTriangle(apex, baseLeft, baseRight, SKYBLUE);
     }
 
     EndDrawing();
@@ -109,28 +130,3 @@ int main() {
 
   return 0;
 }
-
-// void fillBoidSimulation(BoidSimulationDataList &boidSimulationDataList,
-//                         int capacity, int minX, int maxX, int minY, int
-//                         maxY)
-//                         {
-//   boidSimulationDataList.topMargin = minY;
-//   boidSimulationDataList.bottomMargin = maxY;
-//   boidSimulationDataList.rightMargin = maxX;
-//   boidSimulationDataList.leftMargin = minX;
-//   boidSimulationDataList.allocate(capacity);
-//   for (int i = 0; i < capacity; i++) {
-//     float x = static_cast<float>(rand() % (maxX - minX + 1) + minX);
-//     float y = static_cast<float>(rand() % (maxY - minY + 1) + minY);
-//     float vx = static_cast<float>(
-//         (rand() % (boidSimulationDataList.maxSpeed * 2 + 1)) -
-//         boidSimulationDataList.maxSpeed);
-//     float vy = static_cast<float>(
-//         (rand() % (boidSimulationDataList.maxSpeed * 2 + 1)) -
-//         boidSimulationDataList.maxSpeed);
-//
-//     Boid boid = {x, y, vx, vy};
-//
-//     boidSimulationDataList.addBoid(boid);
-//   }
-// }
