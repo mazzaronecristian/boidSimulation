@@ -1,5 +1,4 @@
 #pragma once
-#include "boid2.h"
 #include <cmath>
 #include <cstdint>
 #include <functional>
@@ -12,6 +11,24 @@ typedef struct CellKey {
   bool operator==(const CellKey &o) const { return cx == o.cx && cy == o.cy; }
 } CellKey;
 
+struct BoidSoA {
+  std::vector<int> id;
+  std::vector<float> x;
+  std::vector<float> y;
+  std::vector<float> vx;
+  std::vector<float> vy;
+
+  std::size_t size() const { return id.size(); }
+
+  void push_back(int i, float px, float py, float pvx, float pvy) {
+    id.push_back(i);
+    x.push_back(px);
+    y.push_back(py);
+    vx.push_back(pvx);
+    vy.push_back(pvy);
+  }
+};
+
 struct CellKeyHash {
   std::size_t operator()(const CellKey &key) const noexcept {
     const std::size_t h1 = std::hash<int32_t>{}(key.cx);
@@ -22,12 +39,12 @@ struct CellKeyHash {
 
 class Grid2 {
 private:
-  std::unordered_map<CellKey, std::vector<Boid2 *>, CellKeyHash> cells;
+  std::unordered_map<CellKey, std::vector<int>, CellKeyHash> cells;
   std::unordered_map<int, std::pair<CellKey, std::size_t>> locations;
 
 public:
   double visualRange = 40.0;
-  float turnFactor = .3f;
+  float turnFactor = .2f;
   float protectedRange = 10;
   float centeringFactor = 0.003f;
   float avoidFactor = 0.15f;
@@ -55,103 +72,107 @@ public:
                    static_cast<int32_t>(std::floor(y / visualRange))};
   }
 
-  void buildGrid(std::vector<Boid2> &boids) {
+  void buildGrid(const BoidSoA &boids) {
     cells.clear();
     locations.clear();
-    for (Boid2 &boid : boids) {
-      CellKey cellKey = cellFrom(boid.x, boid.y);
+
+    for (int i = 0; i < static_cast<int>(boids.size()); ++i) {
+      CellKey cellKey = cellFrom(boids.x[i], boids.y[i]);
       auto &cellBoids = cells[cellKey];
-      cellBoids.push_back(&boid);
-      locations[boid.id] = {cellKey, cellBoids.size() - 1};
+      cellBoids.push_back(i);
+      locations[boids.id[i]] = {cellKey, cellBoids.size() - 1};
     }
   }
 
-  void findNeighbors(const Boid2 &boid, float &xpos_avg, float &ypos_avg,
-                     float &xvel_avg, float &yvel_avg, int &neighboring_boids,
-                     float &closeDx, float &closeDy) const {
-
+  void findNeighbors(const BoidSoA &boids, int i, float &xpos_avg,
+                     float &ypos_avg, float &xvel_avg, float &yvel_avg,
+                     int &neighboring_boids, float &closeDx,
+                     float &closeDy) const {
     const double visibleRangeSquared = visualRange * visualRange;
     const float protectedRangeSquared = protectedRange * protectedRange;
 
+    const float bx = boids.x[i];
+    const float by = boids.y[i];
+
     const int minCx =
-        static_cast<int>(std::floor((boid.x - visualRange) / visualRange));
+        static_cast<int>(std::floor((bx - visualRange) / visualRange));
     const int maxCx =
-        static_cast<int>(std::floor((boid.x + visualRange) / visualRange));
+        static_cast<int>(std::floor((bx + visualRange) / visualRange));
     const int minCy =
-        static_cast<int>(std::floor((boid.y - visualRange) / visualRange));
+        static_cast<int>(std::floor((by - visualRange) / visualRange));
     const int maxCy =
-        static_cast<int>(std::floor((boid.y + visualRange) / visualRange));
+        static_cast<int>(std::floor((by + visualRange) / visualRange));
 
     for (int cx = minCx; cx <= maxCx; ++cx) {
       for (int cy = minCy; cy <= maxCy; ++cy) {
         const auto it = cells.find(CellKey{cx, cy});
-        if (it == cells.end()) {
+        if (it == cells.end())
           continue;
-        }
 
-        const std::vector<Boid2 *> &cellBoids = it->second;
-        for (Boid2 *neighbor : cellBoids) {
-          if (neighbor == &boid) {
+        const std::vector<int> &cellBoids = it->second;
+        for (int j : cellBoids) {
+          if (j == i)
             continue;
-          }
-          const double dx = neighbor->x - boid.x;
-          const double dy = neighbor->y - boid.y;
-          if (dx * dx + dy * dy <= visibleRangeSquared) {
-            xvel_avg += neighbor->vx;
-            yvel_avg += neighbor->vy;
-            xpos_avg += neighbor->x;
-            ypos_avg += neighbor->y;
+
+          const double dx = boids.x[j] - bx;
+          const double dy = boids.y[j] - by;
+          const double dist2 = dx * dx + dy * dy;
+
+          if (dist2 <= visibleRangeSquared) {
+            xvel_avg += boids.vx[j];
+            yvel_avg += boids.vy[j];
+            xpos_avg += boids.x[j];
+            ypos_avg += boids.y[j];
             neighboring_boids += 1;
           }
-          if (dx * dx + dy * dy < protectedRangeSquared) {
-            closeDx += boid.x - neighbor->x;
-            closeDy += boid.y - neighbor->y;
+
+          if (dist2 < protectedRangeSquared) {
+            closeDx += bx - boids.x[j];
+            closeDy += by - boids.y[j];
           }
         }
       }
     }
   }
 
-  void move(Boid2 &boid) {
-    double x = boid.x + boid.vx;
-    double y = boid.y + boid.vy;
+  void move(BoidSoA &boids, int i) {
+    boids.x[i] += boids.vx[i];
+    boids.y[i] += boids.vy[i];
 
-    const CellKey newCellKey = cellFrom(x, y);
-    boid.x = x;
-    boid.y = y;
+    const CellKey newCellKey = cellFrom(boids.x[i], boids.y[i]);
 
-    auto locationIt = locations.find(boid.id);
+    auto locationIt = locations.find(boids.id[i]);
     if (locationIt == locations.end()) {
       auto &newCell = cells[newCellKey];
-      newCell.push_back(&boid);
-      locations[boid.id] = {newCellKey, newCell.size() - 1};
+      newCell.push_back(i);
+      locations[boids.id[i]] = {newCellKey, newCell.size() - 1};
       return;
     }
 
     const CellKey oldCellKey = locationIt->second.first;
     const std::size_t oldIndex = locationIt->second.second;
-    if (oldCellKey == newCellKey) {
+    if (oldCellKey == newCellKey)
       return;
-    }
 
     auto oldCellIt = cells.find(oldCellKey);
     if (oldCellIt != cells.end() && oldIndex < oldCellIt->second.size()) {
-      std::vector<Boid2 *> &oldCell = oldCellIt->second;
-      Boid2 *movedBoid = oldCell[oldIndex];
-      Boid2 *lastBoid = oldCell.back();
-      oldCell[oldIndex] = lastBoid;
+      auto &oldCell = oldCellIt->second;
+      int movedIndex = oldCell[oldIndex];
+      int lastIndex = oldCell.back();
+      oldCell[oldIndex] = lastIndex;
       oldCell.pop_back();
 
-      if (lastBoid != movedBoid) {
-        auto lastLocationIt = locations.find(lastBoid->id);
+      if (lastIndex != movedIndex) {
+        auto lastLocationIt = locations.find(boids.id[lastIndex]);
         if (lastLocationIt != locations.end()) {
           lastLocationIt->second.second = oldIndex;
         }
       }
 
       auto &newCell = cells[newCellKey];
-      newCell.push_back(&boid);
-      locations[boid.id] = {newCellKey, newCell.size() - 1};
+      newCell.push_back(i);
+      locations[boids.id[i]] = {newCellKey, newCell.size() - 1};
+
       if (oldCell.empty()) {
         cells.erase(oldCellIt);
       }
@@ -159,63 +180,60 @@ public:
     }
 
     auto &newCell = cells[newCellKey];
-    newCell.push_back(&boid);
-    locations[boid.id] = {newCellKey, newCell.size() - 1};
+    newCell.push_back(i);
+    locations[boids.id[i]] = {newCellKey, newCell.size() - 1};
   }
 
-  void applyRulesToBoid(Boid2 &boid, float xpos_avg, float ypos_avg,
+  void applyRulesToBoid(BoidSoA &boids, int i, float xpos_avg, float ypos_avg,
                         float xvel_avg, float yvel_avg, float closeDx,
-                        float closeDy, int neighboring_boids
-
-  ) {
+                        float closeDy, int neighboring_boids) {
     if (neighboring_boids > 0) {
-      xpos_avg = xpos_avg / neighboring_boids;
-      ypos_avg = ypos_avg / neighboring_boids;
-      xvel_avg = xvel_avg / neighboring_boids;
-      yvel_avg = yvel_avg / neighboring_boids;
+      xpos_avg /= neighboring_boids;
+      ypos_avg /= neighboring_boids;
+      xvel_avg /= neighboring_boids;
+      yvel_avg /= neighboring_boids;
 
-      // Alignment and Cohesion
-      boid.vx = (boid.vx + (xpos_avg - boid.x) * centeringFactor +
-                 (xvel_avg - boid.vx) * matchingFactor);
+      boids.vx[i] = boids.vx[i] + (xpos_avg - boids.x[i]) * centeringFactor +
+                    (xvel_avg - boids.vx[i]) * matchingFactor;
 
-      boid.vy = (boid.vy + (ypos_avg - boid.y) * centeringFactor +
-                 (yvel_avg - boid.vy) * matchingFactor);
+      boids.vy[i] = boids.vy[i] + (ypos_avg - boids.y[i]) * centeringFactor +
+                    (yvel_avg - boids.vy[i]) * matchingFactor;
     }
 
-    // Separation
-    boid.vx = boid.vx + (closeDx * avoidFactor);
-    boid.vy = boid.vy + (closeDy * avoidFactor);
-    checkScreenEdges(boid);
-    normalizeSpeed(boid);
+    boids.vx[i] += closeDx * avoidFactor;
+    boids.vy[i] += closeDy * avoidFactor;
+
+    checkScreenEdges(boids, i);
+    normalizeSpeed(boids, i);
   }
 
-  void checkScreenEdges(Boid2 &boid) {
-    if (boid.x < leftMargin)
-      boid.vx = boid.vx + turnFactor;
-    if (boid.x > rightMargin)
-      boid.vx = boid.vx - turnFactor;
-    if (boid.y > bottomMargin)
-      boid.vy = boid.vy - turnFactor;
-    if (boid.y < topMargin)
-      boid.vy = boid.vy + turnFactor;
+  void checkScreenEdges(BoidSoA &boids, int i) {
+    if (boids.x[i] < leftMargin)
+      boids.vx[i] += turnFactor;
+    if (boids.x[i] > rightMargin)
+      boids.vx[i] -= turnFactor;
+    if (boids.y[i] > bottomMargin)
+      boids.vy[i] -= turnFactor;
+    if (boids.y[i] < topMargin)
+      boids.vy[i] += turnFactor;
   }
 
-  void normalizeSpeed(Boid2 &boid) {
-    float speed = std::sqrt(boid.vx * boid.vx + boid.vy * boid.vy);
+  void normalizeSpeed(BoidSoA &boids, int i) {
+    float speed =
+        std::sqrt(boids.vx[i] * boids.vx[i] + boids.vy[i] * boids.vy[i]);
     if (speed == 0.0f) {
-      boid.vx = static_cast<float>(minSpeed);
-      boid.vy = 0.0f;
+      boids.vx[i] = static_cast<float>(minSpeed);
+      boids.vy[i] = 0.0f;
       return;
     }
 
-    // Enforce min and max speeds
     if (speed < minSpeed) {
-      boid.vx = (boid.vx / speed) * minSpeed;
-      boid.vy = (boid.vy / speed) * minSpeed;
+      boids.vx[i] = (boids.vx[i] / speed) * minSpeed;
+      boids.vy[i] = (boids.vy[i] / speed) * minSpeed;
     }
     if (speed > maxSpeed) {
-      boid.vx = (boid.vx / speed) * maxSpeed;
-      boid.vy = (boid.vy / speed) * maxSpeed;
+      boids.vx[i] = (boids.vx[i] / speed) * maxSpeed;
+      boids.vy[i] = (boids.vy[i] / speed) * maxSpeed;
     }
   }
 };

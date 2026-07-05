@@ -1,4 +1,3 @@
-#include "boid2.h"
 #include "grid2.h"
 #include <cstdio>
 #include <cstdlib>
@@ -35,17 +34,15 @@ int main(int argc, char **argv) {
 
   Grid2 grid = Grid2(minY, maxX, maxY, minX);
 
-  std::vector<Boid2> boids;
-  for (int i = 0; i < size; i++) {
+  BoidSoA boids;
+  for (int i = 0; i < size; ++i) {
     float x = static_cast<float>(rand() % (maxX - minX + 1) + minX);
     float y = static_cast<float>(rand() % (maxY - minY + 1) + minY);
     float vx = static_cast<float>((rand() % (grid.getMaxSpeed() * 2 + 1)) -
                                   grid.getMaxSpeed());
     float vy = static_cast<float>((rand() % (grid.getMaxSpeed() * 2 + 1)) -
                                   grid.getMaxSpeed());
-
-    Boid2 boid = {i, x, y, vx, vy};
-    boids.push_back(boid);
+    boids.push_back(i, x, y, vx, vy);
   }
   grid.buildGrid(boids);
 
@@ -75,45 +72,29 @@ int main(int argc, char **argv) {
         "centeringFactor: %.3f  avoidFactor: %.2f  matchingFactor: %.2f",
         grid.centeringFactor, grid.avoidFactor, grid.matchingFactor);
     DrawText(paramsText, 10, 60, 20, RAYWHITE);
-
     std::snprintf(paramsText, sizeof(paramsText), "maxSpeed: %d  minSpeed: %d",
                   grid.maxSpeed, grid.minSpeed);
     DrawText(paramsText, 10, 85, 20, RAYWHITE);
-    //
-    const size_t n = boids.size();
-    std::vector<float> xpos_avg(n, 0.0f);
-    std::vector<float> ypos_avg(n, 0.0f);
-    std::vector<float> xvel_avg(n, 0.0f);
-    std::vector<float> yvel_avg(n, 0.0f);
-    std::vector<float> closeDx(n, 0.0f);
-    std::vector<float> closeDy(n, 0.0f);
-    std::vector<int> neighboring_boids(n, 0);
 
-#pragma omp parallel for default(none) num_threads(12)                         \
-    shared(boids, grid, size, xpos_avg, ypos_avg, xvel_avg, yvel_avg, closeDx, \
-               closeDy, neighboring_boids)
-    for (Boid2 &boid : boids) {
-      int i = boid.id;
+#pragma omp parallel for
+    for (int i = 0; i < static_cast<int>(boids.size()); ++i) {
+      float xpos_avg = 0.0f, ypos_avg = 0.0f;
+      float xvel_avg = 0.0f, yvel_avg = 0.0f;
+      float closeDx = 0.0f, closeDy = 0.0f;
+      int neighboring_boids = 0;
 
-      grid.findNeighbors(boid, xpos_avg[i], ypos_avg[i], xvel_avg[i],
-                         yvel_avg[i], neighboring_boids[i], closeDx[i],
-                         closeDy[i]);
-      grid.applyRulesToBoid(boid, xpos_avg[i], ypos_avg[i], xvel_avg[i],
-                            yvel_avg[i], closeDx[i], closeDy[i],
-                            neighboring_boids[i]);
+      grid.findNeighbors(boids, i, xpos_avg, ypos_avg, xvel_avg, yvel_avg,
+                         neighboring_boids, closeDx, closeDy);
+      grid.applyRulesToBoid(boids, i, xpos_avg, ypos_avg, xvel_avg, yvel_avg,
+                            closeDx, closeDy, neighboring_boids);
     }
 
-    for (Boid2 &boid : boids) {
-      grid.move(boid);
+    for (int i = 0; i < static_cast<int>(boids.size()); ++i) {
+      grid.move(boids, i);
 
-      const float halfBase = 3.5f;
-      const float height = 10.0f;
-      const float x = static_cast<float>(boid.x);
-      const float y = static_cast<float>(boid.y);
-      Vector2 apex = {x, y};
-      Vector2 baseLeft = {x - halfBase, y + height};
-      Vector2 baseRight = {x + halfBase, y + height};
-
+      Vector2 apex = {boids.x[i], boids.y[i]};
+      Vector2 baseLeft = {boids.x[i] - 3.5f, boids.y[i] + 10.0f};
+      Vector2 baseRight = {boids.x[i] + 3.5f, boids.y[i] + 10.0f};
       DrawTriangle(apex, baseLeft, baseRight, SKYBLUE);
     }
 
