@@ -20,6 +20,14 @@ struct BoidSoA {
 
   std::size_t size() const { return id.size(); }
 
+  void init(int size) {
+    id.reserve(size);
+    x.reserve(size);
+    y.reserve(size);
+    vx.reserve(size);
+    vy.reserve(size);
+  }
+
   void push_back(int i, float px, float py, float pvx, float pvy) {
     id.push_back(i);
     x.push_back(px);

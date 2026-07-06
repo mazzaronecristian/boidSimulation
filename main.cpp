@@ -10,7 +10,7 @@
 //                         maxY);
 
 int main(int argc, char **argv) {
-  int size = 10000; // valore default
+  int size = 30000; // valore default
 
   if (argc > 1) {
     size = std::atoi(argv[1]);
@@ -35,6 +35,8 @@ int main(int argc, char **argv) {
   Grid2 grid = Grid2(minY, maxX, maxY, minX);
 
   BoidSoA boids;
+
+  boids.init(size);
   for (int i = 0; i < size; ++i) {
     float x = static_cast<float>(rand() % (maxX - minX + 1) + minX);
     float y = static_cast<float>(rand() % (maxY - minY + 1) + minY);
