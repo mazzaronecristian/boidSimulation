@@ -1,64 +1,138 @@
-// #include "grid.h"
-// #include "boid.h"
-//
-// void Grid::move(Boid *unit, double x, double y) {
-//   // See which cell it was in.
-//   int oldCellX = (int)(unit->x / Grid::CELL_SIZE);
-//   int oldCellY = (int)(unit->y / Grid::CELL_SIZE);
-//
-//   // See which cell it's moving to.
-//   int cellX = (int)(x / Grid::CELL_SIZE);
-//   int cellY = (int)(y / Grid::CELL_SIZE);
-//
-//   unit->x = x;
-//   unit->y = y;
-//   // If it didn't change cells, we're done.
-//   if (oldCellX == cellX && oldCellY == cellY)
-//     return;
-//
-//   // Unlink it from the list of its old cell.
-//   if (unit->prev_ != NULL) {
-//     unit->prev_->next_ = unit->next_;
-//   }
-//
-//   if (unit->next_ != NULL) {
-//     unit->next_->prev_ = unit->prev_;
-//   }
-//
-//   // If it's the head of a list, remove it.
-//   if (cells_[oldCellX][oldCellY] == unit) {
-//     cells_[oldCellX][oldCellY] = unit->next_;
-//   }
-//
-//   // Add it back to the grid at its new cell.
-//   add(unit);
-// };
-//
-// void Grid::add(Boid *unit) {
-//   // Determine which grid cell it's in.
-//   int cellX = (int)(unit->x / Grid::CELL_SIZE);
-//   int cellY = (int)(unit->y / Grid::CELL_SIZE);
-//
-//   // Add to the front of list for the cell it's in.
-//   unit->prev_ = NULL;
-//   unit->next_ = cells_[cellX][cellY];
-//   cells_[cellX][cellY] = unit;
-//
-//   if (unit->next_ != NULL) {
-//     unit->next_->prev_ = unit;
-//   }
-// }
-//
-// void Grid::handleCell(Boid *unit) {
-//   while (unit != NULL) {
-//     Boid *other = unit->next_;
-//     while (other != NULL) {
-//       if (unit->x == other->x && unit->y == other->y) {
-//         // TODO: non so bene cosa scrivere qui
-//       }
-//       other = other->next_;
-//     }
-//
-//     unit = unit->next_;
-//   }
-// };
+#include "grid.h"
+
+void Grid::buildGrid(const BoidSoA &boids) {
+
+  cells.clear();
+  locations.clear();
+
+  for (int i = 0; i < static_cast<int>(boids.size()); ++i) {
+    CellKey cellKey = cellFrom(boids.x[i], boids.y[i]);
+    auto &cellBoids = cells[cellKey];
+    cellBoids.push_back(i);
+    locations[boids.id[i]] = {cellKey, cellBoids.size() - 1};
+  }
+}
+
+void Grid::findNeighbors(const BoidSoA &boids, int i, float &xpos_avg,
+                         float &ypos_avg, float &xvel_avg, float &yvel_avg,
+                         int &neighboring_boids, float &closeDx,
+                         float &closeDy) const {
+  const double visibleRangeSquared = visualRange * visualRange;
+  const float protectedRangeSquared = protectedRange * protectedRange;
+
+  const float bx = boids.x[i];
+  const float by = boids.y[i];
+
+  const int minCx =
+      static_cast<int>(std::floor((bx - visualRange) / visualRange));
+  const int maxCx =
+      static_cast<int>(std::floor((bx + visualRange) / visualRange));
+  const int minCy =
+      static_cast<int>(std::floor((by - visualRange) / visualRange));
+  const int maxCy =
+      static_cast<int>(std::floor((by + visualRange) / visualRange));
+
+  for (int cx = minCx; cx <= maxCx; ++cx) {
+    for (int cy = minCy; cy <= maxCy; ++cy) {
+      const auto it = cells.find(CellKey{cx, cy});
+      if (it == cells.end())
+        continue;
+
+      const std::vector<int> &cellBoids = it->second;
+      for (int j : cellBoids) {
+        if (j == i)
+          continue;
+
+        const double dx = boids.x[j] - bx;
+        const double dy = boids.y[j] - by;
+        const double dist2 = dx * dx + dy * dy;
+
+        if (dist2 <= visibleRangeSquared) {
+          xvel_avg += boids.vx[j];
+          yvel_avg += boids.vy[j];
+          xpos_avg += boids.x[j];
+          ypos_avg += boids.y[j];
+          neighboring_boids += 1;
+        }
+
+        if (dist2 < protectedRangeSquared) {
+          closeDx += bx - boids.x[j];
+          closeDy += by - boids.y[j];
+        }
+      }
+    }
+  }
+}
+
+void Grid::move(BoidSoA &boids, int i) {
+  boids.x[i] += boids.vx[i];
+  boids.y[i] += boids.vy[i];
+
+  const CellKey newCellKey = cellFrom(boids.x[i], boids.y[i]);
+
+  auto locationIt = locations.find(boids.id[i]);
+  if (locationIt == locations.end()) {
+    auto &newCell = cells[newCellKey];
+    newCell.push_back(i);
+    locations[boids.id[i]] = {newCellKey, newCell.size() - 1};
+    return;
+  }
+
+  const CellKey oldCellKey = locationIt->second.first;
+  const std::size_t oldIndex = locationIt->second.second;
+  if (oldCellKey == newCellKey)
+    return;
+
+  auto oldCellIt = cells.find(oldCellKey);
+  if (oldCellIt != cells.end() && oldIndex < oldCellIt->second.size()) {
+    auto &oldCell = oldCellIt->second;
+    int movedIndex = oldCell[oldIndex];
+    int lastIndex = oldCell.back();
+    oldCell[oldIndex] = lastIndex;
+    oldCell.pop_back();
+
+    if (lastIndex != movedIndex) {
+      auto lastLocationIt = locations.find(boids.id[lastIndex]);
+      if (lastLocationIt != locations.end()) {
+        lastLocationIt->second.second = oldIndex;
+      }
+    }
+
+    auto &newCell = cells[newCellKey];
+    newCell.push_back(i);
+    locations[boids.id[i]] = {newCellKey, newCell.size() - 1};
+
+    if (oldCell.empty()) {
+      cells.erase(oldCellIt);
+    }
+    return;
+  }
+
+  auto &newCell = cells[newCellKey];
+  newCell.push_back(i);
+  locations[boids.id[i]] = {newCellKey, newCell.size() - 1};
+}
+
+void Grid::applyRulesToBoid(BoidSoA &boids, int i, float xpos_avg,
+                            float ypos_avg, float xvel_avg, float yvel_avg,
+                            float closeDx, float closeDy,
+                            int neighboring_boids) {
+  if (neighboring_boids > 0) {
+    xpos_avg /= neighboring_boids;
+    ypos_avg /= neighboring_boids;
+    xvel_avg /= neighboring_boids;
+    yvel_avg /= neighboring_boids;
+
+    boids.vx[i] = boids.vx[i] + (xpos_avg - boids.x[i]) * centeringFactor +
+                  (xvel_avg - boids.vx[i]) * matchingFactor;
+
+    boids.vy[i] = boids.vy[i] + (ypos_avg - boids.y[i]) * centeringFactor +
+                  (yvel_avg - boids.vy[i]) * matchingFactor;
+  }
+
+  boids.vx[i] += closeDx * avoidFactor;
+  boids.vy[i] += closeDy * avoidFactor;
+
+  checkScreenEdges(boids, i);
+  normalizeSpeed(boids, i);
+}

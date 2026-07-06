@@ -1,4 +1,4 @@
-#include "grid2.h"
+#include "grid.h"
 #include <cstdio>
 #include <cstdlib>
 #include <omp.h> // for OpenMP library functions
@@ -32,7 +32,7 @@ int main(int argc, char **argv) {
   printf("SCREEN_HEIGHT %d\n", SCREEN_HEIGHT);
   //--------------------------------------------------------------------------------------
 
-  Grid2 grid = Grid2(minY, maxX, maxY, minX);
+  Grid grid = Grid(minY, maxX, maxY, minX);
 
   BoidSoA boids;
 
@@ -66,16 +66,18 @@ int main(int argc, char **argv) {
     char paramsText[256];
     std::snprintf(paramsText, sizeof(paramsText),
                   "visualRange: %.1f  turnFactor: %.2f  protectedRange: %.1f",
-                  grid.visualRange, grid.turnFactor, grid.protectedRange);
+                  grid.getVisualRange(), grid.getTurnFactor(),
+                  grid.getProtectedRange());
     DrawText(paramsText, 10, 35, 20, RAYWHITE);
 
     std::snprintf(
         paramsText, sizeof(paramsText),
         "centeringFactor: %.3f  avoidFactor: %.2f  matchingFactor: %.2f",
-        grid.centeringFactor, grid.avoidFactor, grid.matchingFactor);
+        grid.getCenteringFactor(), grid.getAvoidFactor(),
+        grid.getMatchingFactor());
     DrawText(paramsText, 10, 60, 20, RAYWHITE);
     std::snprintf(paramsText, sizeof(paramsText), "maxSpeed: %d  minSpeed: %d",
-                  grid.maxSpeed, grid.minSpeed);
+                  grid.getMaxSpeed(), grid.getMinSpeed());
     DrawText(paramsText, 10, 85, 20, RAYWHITE);
 
 #pragma omp parallel for

@@ -19,7 +19,10 @@ FetchContent_Declare(
 )
 FetchContent_MakeAvailable(raylib)
 
-add_executable(BoidSimulation main.cpp)
+add_executable(BoidSimulation
+    main.cpp
+    src/grid.cpp
+)
 
 target_link_libraries(BoidSimulation PRIVATE raylib)
 
