@@ -22,11 +22,6 @@ struct CellKeyHash {
 
 class Grid {
 private:
-  int topMargin = 0;
-  int rightMargin = 0;
-  int bottomMargin = 0;
-  int leftMargin = 0;
-
   double visualRange = 40.0;
   float turnFactor = .2f;
   float protectedRange = 10;
@@ -70,6 +65,10 @@ private:
   }
 
 public:
+  int topMargin = 0;
+  int rightMargin = 0;
+  int bottomMargin = 0;
+  int leftMargin = 0;
   int size() const { return static_cast<int>(locations.size()); }
 
   double getVisualRange() const { return visualRange; }

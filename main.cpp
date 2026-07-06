@@ -1,3 +1,4 @@
+#include "boid_soa.h"
 #include "grid.h"
 #include <cstdio>
 #include <cstdlib>
@@ -8,6 +9,12 @@
 // void fillBoidSimulation(BoidSimulationDataList &boidSimulationDataList,
 //                         int capacity, int minX, int maxX, int minY, int
 //                         maxY);
+//
+//
+void initSimulation(Grid &grid, BoidSoA &boidSoA, int num_boids);
+void runParallelSoA(Grid &grid, BoidSoA &boids);
+void drawParameters(Grid &grid);
+void drawBoids(Grid &grid, BoidSoA &boids);
 
 int main(int argc, char **argv) {
   int size = 30000; // valore default
@@ -31,22 +38,9 @@ int main(int argc, char **argv) {
   printf("SCREEN_WIDTH %d\n", SCREEN_WIDTH);
   printf("SCREEN_HEIGHT %d\n", SCREEN_HEIGHT);
   //--------------------------------------------------------------------------------------
-
   Grid grid = Grid(minY, maxX, maxY, minX);
-
   BoidSoA boids;
-
-  boids.init(size);
-  for (int i = 0; i < size; ++i) {
-    float x = static_cast<float>(rand() % (maxX - minX + 1) + minX);
-    float y = static_cast<float>(rand() % (maxY - minY + 1) + minY);
-    float vx = static_cast<float>((rand() % (grid.getMaxSpeed() * 2 + 1)) -
-                                  grid.getMaxSpeed());
-    float vy = static_cast<float>((rand() % (grid.getMaxSpeed() * 2 + 1)) -
-                                  grid.getMaxSpeed());
-    boids.push_back(i, x, y, vx, vy);
-  }
-  grid.buildGrid(boids);
+  initSimulation(grid, boids, size);
 
   printf("simulation size: %d\n", grid.size());
   // Main game loop
@@ -62,45 +56,9 @@ int main(int argc, char **argv) {
                        GetScreenHeight() - margin * 2,
                        DARKGRAY); // NOTE: Uses QUADS internally, not lines
     DrawFPS(10, 10);
-
-    char paramsText[256];
-    std::snprintf(paramsText, sizeof(paramsText),
-                  "visualRange: %.1f  turnFactor: %.2f  protectedRange: %.1f",
-                  grid.getVisualRange(), grid.getTurnFactor(),
-                  grid.getProtectedRange());
-    DrawText(paramsText, 10, 35, 20, RAYWHITE);
-
-    std::snprintf(
-        paramsText, sizeof(paramsText),
-        "centeringFactor: %.3f  avoidFactor: %.2f  matchingFactor: %.2f",
-        grid.getCenteringFactor(), grid.getAvoidFactor(),
-        grid.getMatchingFactor());
-    DrawText(paramsText, 10, 60, 20, RAYWHITE);
-    std::snprintf(paramsText, sizeof(paramsText), "maxSpeed: %d  minSpeed: %d",
-                  grid.getMaxSpeed(), grid.getMinSpeed());
-    DrawText(paramsText, 10, 85, 20, RAYWHITE);
-
-#pragma omp parallel for
-    for (int i = 0; i < static_cast<int>(boids.size()); ++i) {
-      float xpos_avg = 0.0f, ypos_avg = 0.0f;
-      float xvel_avg = 0.0f, yvel_avg = 0.0f;
-      float closeDx = 0.0f, closeDy = 0.0f;
-      int neighboring_boids = 0;
-
-      grid.findNeighbors(boids, i, xpos_avg, ypos_avg, xvel_avg, yvel_avg,
-                         neighboring_boids, closeDx, closeDy);
-      grid.applyRulesToBoid(boids, i, xpos_avg, ypos_avg, xvel_avg, yvel_avg,
-                            closeDx, closeDy, neighboring_boids);
-    }
-
-    for (int i = 0; i < static_cast<int>(boids.size()); ++i) {
-      grid.move(boids, i);
-
-      Vector2 apex = {boids.x[i], boids.y[i]};
-      Vector2 baseLeft = {boids.x[i] - 3.5f, boids.y[i] + 10.0f};
-      Vector2 baseRight = {boids.x[i] + 3.5f, boids.y[i] + 10.0f};
-      DrawTriangle(apex, baseLeft, baseRight, SKYBLUE);
-    }
+    drawParameters(grid);
+    runParallelSoA(grid, boids);
+    drawBoids(grid, boids);
 
     EndDrawing();
   }
@@ -114,4 +72,65 @@ int main(int argc, char **argv) {
   //--------------------------------------------------------------------------------------
 
   return 0;
+}
+
+void initSimulation(Grid &grid, BoidSoA &boids, int size) {
+  boids.init(size);
+  for (int i = 0; i < size; ++i) {
+    float x = static_cast<float>(
+        rand() % (grid.rightMargin - grid.leftMargin + 1) + grid.leftMargin);
+    float y = static_cast<float>(
+        rand() % (grid.bottomMargin - grid.topMargin + 1) + grid.topMargin);
+    float vx = static_cast<float>((rand() % (grid.getMaxSpeed() * 2 + 1)) -
+                                  grid.getMaxSpeed());
+    float vy = static_cast<float>((rand() % (grid.getMaxSpeed() * 2 + 1)) -
+                                  grid.getMaxSpeed());
+    boids.push_back(i, x, y, vx, vy);
+  }
+  grid.buildGrid(boids);
+}
+
+void runParallelSoA(Grid &grid, BoidSoA &boids) {
+#pragma omp parallel for
+  for (int i = 0; i < static_cast<int>(boids.size()); ++i) {
+    float xpos_avg = 0.0f, ypos_avg = 0.0f;
+    float xvel_avg = 0.0f, yvel_avg = 0.0f;
+    float closeDx = 0.0f, closeDy = 0.0f;
+    int neighboring_boids = 0;
+
+    grid.findNeighbors(boids, i, xpos_avg, ypos_avg, xvel_avg, yvel_avg,
+                       neighboring_boids, closeDx, closeDy);
+    grid.applyRulesToBoid(boids, i, xpos_avg, ypos_avg, xvel_avg, yvel_avg,
+                          closeDx, closeDy, neighboring_boids);
+  }
+}
+void drawParameters(Grid &grid) {
+
+  char paramsText[256];
+  std::snprintf(paramsText, sizeof(paramsText),
+                "visualRange: %.1f  turnFactor: %.2f  protectedRange: %.1f",
+                grid.getVisualRange(), grid.getTurnFactor(),
+                grid.getProtectedRange());
+  DrawText(paramsText, 10, 35, 20, RAYWHITE);
+  std::snprintf(
+      paramsText, sizeof(paramsText),
+      "centeringFactor: %.3f  avoidFactor: %.2f  matchingFactor: %.2f",
+      grid.getCenteringFactor(), grid.getAvoidFactor(),
+      grid.getMatchingFactor());
+  DrawText(paramsText, 10, 60, 20, RAYWHITE);
+
+  std::snprintf(paramsText, sizeof(paramsText), "maxSpeed: %d  minSpeed: %d",
+                grid.getMaxSpeed(), grid.getMinSpeed());
+  DrawText(paramsText, 10, 85, 20, RAYWHITE);
+}
+
+void drawBoids(Grid &grid, BoidSoA &boids) {
+  for (int i = 0; i < static_cast<int>(boids.size()); ++i) {
+    grid.move(boids, i);
+
+    Vector2 apex = {boids.x[i], boids.y[i]};
+    Vector2 baseLeft = {boids.x[i] - 3.5f, boids.y[i] + 10.0f};
+    Vector2 baseRight = {boids.x[i] + 3.5f, boids.y[i] + 10.0f};
+    DrawTriangle(apex, baseLeft, baseRight, SKYBLUE);
+  }
 }
