@@ -1,5 +1,6 @@
 #pragma once
 #include "boid_soa.h"
+#include "margin.h"
 #include <cmath>
 #include <cstdint>
 #include <functional>
@@ -22,87 +23,84 @@ struct CellKeyHash {
 
 class Grid {
 private:
-  double visualRange = 40.0;
-  float turnFactor = .2f;
-  float protectedRange = 10;
-  float centeringFactor = 0.003f;
-  float avoidFactor = 0.15f;
-  float matchingFactor = 0.1f;
-  int maxSpeed = 6;
-  int minSpeed = 3;
+  Margin margin_;
 
   std::unordered_map<CellKey, std::vector<int>, CellKeyHash> cells;
   std::unordered_map<int, std::pair<CellKey, std::size_t>> locations;
 
   void checkScreenEdges(BoidSoA &boids, int i) {
-    if (boids.x[i] < leftMargin)
-      boids.vx[i] += turnFactor;
-    if (boids.x[i] > rightMargin)
-      boids.vx[i] -= turnFactor;
-    if (boids.y[i] > bottomMargin)
-      boids.vy[i] -= turnFactor;
-    if (boids.y[i] < topMargin)
-      boids.vy[i] += turnFactor;
+    if (boids.x[i] < margin_.leftMargin)
+      boids.vx[i] += margin_.turnFactor;
+    if (boids.x[i] > margin_.rightMargin)
+      boids.vx[i] -= margin_.turnFactor;
+    if (boids.y[i] > margin_.bottomMargin)
+      boids.vy[i] -= margin_.turnFactor;
+    if (boids.y[i] < margin_.topMargin)
+      boids.vy[i] += margin_.turnFactor;
   }
 
   void normalizeSpeed(BoidSoA &boids, int i) {
     float speed =
         std::sqrt(boids.vx[i] * boids.vx[i] + boids.vy[i] * boids.vy[i]);
     if (speed == 0.0f) {
-      boids.vx[i] = static_cast<float>(minSpeed);
+      boids.vx[i] = static_cast<float>(margin_.minSpeed);
       boids.vy[i] = 0.0f;
       return;
     }
 
-    if (speed < minSpeed) {
-      boids.vx[i] = (boids.vx[i] / speed) * minSpeed;
-      boids.vy[i] = (boids.vy[i] / speed) * minSpeed;
+    if (speed < margin_.minSpeed) {
+      boids.vx[i] = (boids.vx[i] / speed) * margin_.minSpeed;
+      boids.vy[i] = (boids.vy[i] / speed) * margin_.minSpeed;
     }
-    if (speed > maxSpeed) {
-      boids.vx[i] = (boids.vx[i] / speed) * maxSpeed;
-      boids.vy[i] = (boids.vy[i] / speed) * maxSpeed;
+    if (speed > margin_.maxSpeed) {
+      boids.vx[i] = (boids.vx[i] / speed) * margin_.maxSpeed;
+      boids.vy[i] = (boids.vy[i] / speed) * margin_.maxSpeed;
     }
   }
 
 public:
-  int topMargin = 0;
-  int rightMargin = 0;
-  int bottomMargin = 0;
-  int leftMargin = 0;
   int size() const { return static_cast<int>(locations.size()); }
 
-  double getVisualRange() const { return visualRange; }
-  void setVisualRange(double value) { visualRange = value; }
+  const Margin &getMargin() const { return margin_; }
 
-  float getTurnFactor() const { return turnFactor; }
-  void setTurnFactor(float value) { turnFactor = value; }
+  double getVisualRange() const { return margin_.visualRange; }
+  void setVisualRange(double value) { margin_.visualRange = value; }
 
-  float getProtectedRange() const { return protectedRange; }
-  void setProtectedRange(float value) { protectedRange = value; }
+  float getTurnFactor() const { return margin_.turnFactor; }
+  void setTurnFactor(float value) { margin_.turnFactor = value; }
 
-  float getCenteringFactor() const { return centeringFactor; }
-  void setCenteringFactor(float value) { centeringFactor = value; }
+  float getProtectedRange() const { return margin_.protectedRange; }
+  void setProtectedRange(float value) { margin_.protectedRange = value; }
 
-  float getAvoidFactor() const { return avoidFactor; }
-  void setAvoidFactor(float value) { avoidFactor = value; }
+  float getCenteringFactor() const { return margin_.centeringFactor; }
+  void setCenteringFactor(float value) { margin_.centeringFactor = value; }
 
-  float getMatchingFactor() const { return matchingFactor; }
-  void setMatchingFactor(float value) { matchingFactor = value; }
+  float getAvoidFactor() const { return margin_.avoidFactor; }
+  void setAvoidFactor(float value) { margin_.avoidFactor = value; }
 
-  int getMaxSpeed() const { return maxSpeed; }
-  void setMaxSpeed(int value) { maxSpeed = value; }
+  float getMatchingFactor() const { return margin_.matchingFactor; }
+  void setMatchingFactor(float value) { margin_.matchingFactor = value; }
 
-  int getMinSpeed() const { return minSpeed; }
-  void setMinSpeed(int value) { minSpeed = value; }
+  int getMaxSpeed() const { return margin_.maxSpeed; }
+  void setMaxSpeed(int value) { margin_.maxSpeed = value; }
 
-  explicit Grid(int topMargin, int rightMargin, int bottomMargin,
-                int leftMargin)
-      : topMargin(topMargin), rightMargin(rightMargin),
-        bottomMargin(bottomMargin), leftMargin(leftMargin) {}
+  int getMinSpeed() const { return margin_.minSpeed; }
+  void setMinSpeed(int value) { margin_.minSpeed = value; }
+
+  explicit Grid(const Margin &margin) : margin_(margin) {}
+
+  Grid(int topMargin, int rightMargin, int bottomMargin, int leftMargin)
+      : margin_{} {
+    margin_.topMargin = topMargin;
+    margin_.rightMargin = rightMargin;
+    margin_.bottomMargin = bottomMargin;
+    margin_.leftMargin = leftMargin;
+  }
 
   CellKey cellFrom(double x, double y) const {
-    return CellKey{static_cast<int32_t>(std::floor(x / visualRange)),
-                   static_cast<int32_t>(std::floor(y / visualRange))};
+    return CellKey{
+        static_cast<int32_t>(std::floor(x / margin_.visualRange)),
+        static_cast<int32_t>(std::floor(y / margin_.visualRange))};
   }
 
   void buildGrid(const BoidSoA &boids);

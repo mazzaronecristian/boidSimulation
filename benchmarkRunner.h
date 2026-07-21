@@ -18,6 +18,15 @@ inline Grid createBenchmarkGrid() {
               kMargin);
 }
 
+inline Margin createBenchmarkMargin() {
+  Margin margin;
+  margin.topMargin = kMargin;
+  margin.rightMargin = kScreenWidth - kMargin;
+  margin.bottomMargin = kScreenHeight - kMargin;
+  margin.leftMargin = kMargin;
+  return margin;
+}
+
 class BenchmarkRunner {
 public:
   explicit BenchmarkRunner(int boidCount) : boidCount_(boidCount) {}
@@ -44,7 +53,7 @@ public:
   void init() override {
     grid_ = createBenchmarkGrid();
     boids_ = BoidSoA{};
-    initSimulation(grid_, boids_, boidCount());
+    initParallelSimulation(grid_, boids_, boidCount());
   }
 
   void simulateStep() override { runParallelSoA(grid_, boids_); }
@@ -57,17 +66,20 @@ private:
 class SequentialBenchmarkRunner final : public BenchmarkRunner {
 public:
   explicit SequentialBenchmarkRunner(int boidCount)
-      : BenchmarkRunner(boidCount) {}
+      : BenchmarkRunner(boidCount), margin_(createBenchmarkMargin()) {}
 
   const char *name() const override { return "sequential"; }
 
   void init() override {
-    throw std::logic_error("Sequential benchmark not implemented yet.");
+    boids_ = BoidSoA{};
+    placeBoids(margin_, boids_, boidCount());
   }
 
-  void simulateStep() override {
-    throw std::logic_error("Sequential benchmark not implemented yet.");
-  }
+  void simulateStep() override { runSequential(margin_, boids_); }
+
+private:
+  Margin margin_;
+  BoidSoA boids_;
 };
 
 inline std::unique_ptr<BenchmarkRunner>

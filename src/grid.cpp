@@ -17,20 +17,25 @@ void Grid::findNeighbors(const BoidSoA &boids, int i, float &xpos_avg,
                          float &ypos_avg, float &xvel_avg, float &yvel_avg,
                          int &neighboring_boids, float &closeDx,
                          float &closeDy) const {
-  const double visibleRangeSquared = visualRange * visualRange;
-  const float protectedRangeSquared = protectedRange * protectedRange;
+  const double visibleRangeSquared = margin_.visualRange * margin_.visualRange;
+  const float protectedRangeSquared =
+      margin_.protectedRange * margin_.protectedRange;
 
   const float bx = boids.x[i];
   const float by = boids.y[i];
 
   const int minCx =
-      static_cast<int>(std::floor((bx - visualRange) / visualRange));
+      static_cast<int>(
+          std::floor((bx - margin_.visualRange) / margin_.visualRange));
   const int maxCx =
-      static_cast<int>(std::floor((bx + visualRange) / visualRange));
+      static_cast<int>(
+          std::floor((bx + margin_.visualRange) / margin_.visualRange));
   const int minCy =
-      static_cast<int>(std::floor((by - visualRange) / visualRange));
+      static_cast<int>(
+          std::floor((by - margin_.visualRange) / margin_.visualRange));
   const int maxCy =
-      static_cast<int>(std::floor((by + visualRange) / visualRange));
+      static_cast<int>(
+          std::floor((by + margin_.visualRange) / margin_.visualRange));
 
   for (int cx = minCx; cx <= maxCx; ++cx) {
     for (int cy = minCy; cy <= maxCy; ++cy) {
@@ -123,15 +128,17 @@ void Grid::applyRulesToBoid(BoidSoA &boids, int i, float xpos_avg,
     xvel_avg /= neighboring_boids;
     yvel_avg /= neighboring_boids;
 
-    boids.vx[i] = boids.vx[i] + (xpos_avg - boids.x[i]) * centeringFactor +
-                  (xvel_avg - boids.vx[i]) * matchingFactor;
+    boids.vx[i] = boids.vx[i] +
+                  (xpos_avg - boids.x[i]) * margin_.centeringFactor +
+                  (xvel_avg - boids.vx[i]) * margin_.matchingFactor;
 
-    boids.vy[i] = boids.vy[i] + (ypos_avg - boids.y[i]) * centeringFactor +
-                  (yvel_avg - boids.vy[i]) * matchingFactor;
+    boids.vy[i] = boids.vy[i] +
+                  (ypos_avg - boids.y[i]) * margin_.centeringFactor +
+                  (yvel_avg - boids.vy[i]) * margin_.matchingFactor;
   }
 
-  boids.vx[i] += closeDx * avoidFactor;
-  boids.vy[i] += closeDy * avoidFactor;
+  boids.vx[i] += closeDx * margin_.avoidFactor;
+  boids.vy[i] += closeDy * margin_.avoidFactor;
 
   checkScreenEdges(boids, i);
   normalizeSpeed(boids, i);
