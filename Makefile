@@ -1,6 +1,6 @@
 BUILD_DIR := build
 
-.PHONY: all configure build run clean
+.PHONY: all configure build run run-benchmark clean
 
 all: build
 
@@ -13,6 +13,9 @@ build: configure
 
 run: build
 	./$(BUILD_DIR)/BoidSimulation
+
+run-benchmark: build
+	./benchmark $(MODE) $(N)
 
 clean:
 	rm -rf $(BUILD_DIR)
