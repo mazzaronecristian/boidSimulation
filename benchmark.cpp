@@ -1,5 +1,4 @@
-#include "grid.h"
-#include "simulation.h"
+#include "benchmarkRunner.h"
 
 #include <array>
 #include <chrono>
@@ -16,20 +15,7 @@
 
 namespace {
 
-using SimulationInit = void (*)(Grid &, BoidSoA &, int);
-using SimulationStep = void (*)(Grid &, BoidSoA &);
-
-struct BenchmarkConfiguration {
-  const char *name;
-  SimulationInit init;
-  SimulationStep step;
-  bool implemented;
-};
-
 constexpr std::array<int, 5> kBoidCounts = {10, 100, 1000, 10000, 100000};
-constexpr int kScreenWidth = 1920;
-constexpr int kScreenHeight = 1080;
-constexpr int kMargin = 300;
 
 struct RunningStats {
   int count = 0;
@@ -55,28 +41,6 @@ struct RunningStats {
   }
 };
 
-Grid createBenchmarkGrid() {
-  return Grid(kMargin, kScreenWidth - kMargin, kScreenHeight - kMargin,
-              kMargin);
-}
-
-const BenchmarkConfiguration &getConfiguration(std::string_view mode) {
-  static const BenchmarkConfiguration parallelConfiguration = {
-      "parallel", initSimulation, runParallelSoA, true};
-  static const BenchmarkConfiguration sequentialConfiguration = {
-      "sequential", nullptr, nullptr, false};
-
-  if (mode == "parallel") {
-    return parallelConfiguration;
-  }
-  if (mode == "sequential") {
-    return sequentialConfiguration;
-  }
-
-  throw std::invalid_argument(
-      "Usage: benchmark <parallel|sequential> <n_iterations>");
-}
-
 int parseIterations(const char *value) {
   char *end = nullptr;
   const long parsed = std::strtol(value, &end, 10);
@@ -86,17 +50,14 @@ int parseIterations(const char *value) {
   return static_cast<int>(parsed);
 }
 
-std::string buildOutputFileName(const BenchmarkConfiguration &configuration,
-                                int iterations) {
+std::string buildOutputFileName(std::string_view mode, int iterations) {
   std::ostringstream fileName;
-  fileName << "benchmark_" << configuration.name << '_' << iterations
-           << ".csv";
+  fileName << "benchmark_" << mode << '_' << iterations << ".csv";
   return fileName.str();
 }
 
-void runBenchmarks(const BenchmarkConfiguration &configuration,
-                   int iterations) {
-  std::ofstream csvFile(buildOutputFileName(configuration, iterations));
+void runBenchmarks(std::string_view mode, int iterations) {
+  std::ofstream csvFile(buildOutputFileName(mode, iterations));
   if (!csvFile.is_open()) {
     throw std::runtime_error("Unable to open CSV output file.");
   }
@@ -106,21 +67,20 @@ void runBenchmarks(const BenchmarkConfiguration &configuration,
     csvFile << line << '\n';
   };
 
-  writeLine("mode: " + std::string(configuration.name));
+  writeLine("mode: " + std::string(mode));
   writeLine("iterations: " + std::to_string(iterations));
   writeLine("boids,total_ms,avg_ms,stddev_ms");
 
   for (int boidCount : kBoidCounts) {
     std::srand(0);
 
-    Grid grid = createBenchmarkGrid();
-    BoidSoA boids;
-    configuration.init(grid, boids, boidCount);
+    auto runner = benchmark::createBenchmarkRunner(mode, boidCount);
+    runner->init();
 
     RunningStats stats;
     for (int iteration = 0; iteration < iterations; ++iteration) {
       const auto start = std::chrono::steady_clock::now();
-      configuration.step(grid, boids);
+      runner->simulateStep();
       const auto end = std::chrono::steady_clock::now();
 
       const double iterationMs =
@@ -147,12 +107,9 @@ int main(int argc, char **argv) {
   }
 
   try {
-    const BenchmarkConfiguration &configuration = getConfiguration(argv[1]);
+    const std::string_view mode = argv[1];
     const int iterations = parseIterations(argv[2]);
-    if (!configuration.implemented) {
-      throw std::logic_error("Sequential benchmark not implemented yet.");
-    }
-    runBenchmarks(configuration, iterations);
+    runBenchmarks(mode, iterations);
   } catch (const std::exception &exception) {
     std::cerr << exception.what() << '\n';
     return EXIT_FAILURE;
