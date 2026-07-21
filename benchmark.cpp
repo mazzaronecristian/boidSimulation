@@ -3,6 +3,7 @@
 
 #include <array>
 #include <chrono>
+#include <cmath>
 #include <cstdlib>
 #include <exception>
 #include <fstream>
@@ -29,6 +30,30 @@ constexpr std::array<int, 5> kBoidCounts = {10, 100, 1000, 10000, 100000};
 constexpr int kScreenWidth = 1920;
 constexpr int kScreenHeight = 1080;
 constexpr int kMargin = 300;
+
+struct RunningStats {
+  int count = 0;
+  double total = 0.0;
+  double mean = 0.0;
+  double m2 = 0.0;
+
+  void add(double sample) {
+    ++count;
+    total += sample;
+
+    const double delta = sample - mean;
+    mean += delta / static_cast<double>(count);
+    const double delta2 = sample - mean;
+    m2 += delta * delta2;
+  }
+
+  double standardDeviation() const {
+    if (count <= 1) {
+      return 0.0;
+    }
+    return std::sqrt(m2 / static_cast<double>(count));
+  }
+};
 
 Grid createBenchmarkGrid() {
   return Grid(kMargin, kScreenWidth - kMargin, kScreenHeight - kMargin,
@@ -83,7 +108,7 @@ void runBenchmarks(const BenchmarkConfiguration &configuration,
 
   writeLine("mode: " + std::string(configuration.name));
   writeLine("iterations: " + std::to_string(iterations));
-  writeLine("boids,total_ms,avg_ms");
+  writeLine("boids,total_ms,avg_ms,stddev_ms");
 
   for (int boidCount : kBoidCounts) {
     std::srand(0);
@@ -92,19 +117,23 @@ void runBenchmarks(const BenchmarkConfiguration &configuration,
     BoidSoA boids;
     configuration.init(grid, boids, boidCount);
 
-    const auto start = std::chrono::steady_clock::now();
+    RunningStats stats;
     for (int iteration = 0; iteration < iterations; ++iteration) {
+      const auto start = std::chrono::steady_clock::now();
       configuration.step(grid, boids);
-    }
-    const auto end = std::chrono::steady_clock::now();
+      const auto end = std::chrono::steady_clock::now();
 
-    const double totalMs =
-        std::chrono::duration<double, std::milli>(end - start).count();
-    const double averageMs = totalMs / static_cast<double>(iterations);
+      const double iterationMs =
+          std::chrono::duration<double, std::milli>(end - start).count();
+      stats.add(iterationMs);
+    }
+    const double totalMs = stats.total;
+    const double averageMs = stats.mean;
+    const double standardDeviationMs = stats.standardDeviation();
 
     std::ostringstream line;
     line << std::fixed << std::setprecision(3) << boidCount << ',' << totalMs
-         << ',' << averageMs;
+         << ',' << averageMs << ',' << standardDeviationMs;
     writeLine(line.str());
   }
 }

@@ -14,7 +14,7 @@ void drawParameters(Grid &grid);
 void drawBoids(Grid &grid, BoidSoA &boids);
 
 int main(int argc, char **argv) {
-  int size = 30000; // valore default
+  int size = 10000; // valore default
 
   if (argc > 1) {
     size = std::atoi(argv[1]);
