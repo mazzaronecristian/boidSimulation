@@ -6,11 +6,6 @@
 #include <raylib.h>
 #include <stdio.h>
 
-// void fillBoidSimulation(BoidSimulationDataList &boidSimulationDataList,
-//                         int capacity, int minX, int maxX, int minY, int
-//                         maxY);
-//
-//
 void drawParameters(const Margin &margin);
 void drawBoids(BoidSoA &boids);
 
@@ -42,10 +37,12 @@ int main(int argc, char **argv) {
   simulationMargin.bottomMargin = maxY;
   simulationMargin.leftMargin = minX;
 
-  Grid grid = Grid(simulationMargin);
   BoidSoA boids;
-  // placeBoids(simulationMargin, boids, size);
+  // PARALLEL
+  Grid grid = Grid(simulationMargin);
   initParallelSimulation(grid, boids, size);
+  // SEQUENTIAL
+  //  placeBoids(simulationMargin, boids, size);
 
   printf("simulation size: %d\n", grid.size());
   // Main game loop
@@ -62,8 +59,10 @@ int main(int argc, char **argv) {
                        DARKGRAY); // NOTE: Uses QUADS internally, not lines
     DrawFPS(10, 10);
     drawParameters(simulationMargin);
-    // runSequential(simulationMargin, boids);
+    // PARALLEL
     runParallelSoA(grid, boids);
+    // SEQUENTIAL
+    // runSequential(simulationMargin, boids);
     drawBoids(boids);
 
     EndDrawing();
