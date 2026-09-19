@@ -1,6 +1,7 @@
 #pragma once
 
 #include "grid.h"
+#include "scheduling_strategy_enum.h"
 #include "simulation.h"
 
 #include <memory>
@@ -56,7 +57,9 @@ public:
     initParallelSimulation(grid_, boids_, boidCount());
   }
 
-  void simulateStep() override { runParallelSoA(grid_, boids_); }
+  void simulateStep() override {
+    runParallelSoA(grid_, boids_, ScheudulingStrategyEnum::Dynamic);
+  }
 
 private:
   Grid grid_;

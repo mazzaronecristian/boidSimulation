@@ -1,5 +1,6 @@
 #include "grid.h"
 #include "margin.h"
+#include "scheduling_strategy_enum.h"
 #include "simulation.h"
 #include <cstdio>
 #include <cstdlib>
@@ -60,7 +61,7 @@ int main(int argc, char **argv) {
     DrawFPS(10, 10);
     drawParameters(simulationMargin);
     // PARALLEL
-    runParallelSoA(grid, boids);
+    runParallelSoA(grid, boids, ScheudulingStrategyEnum::Dynamic);
     // SEQUENTIAL
     // runSequential(simulationMargin, boids);
     drawBoids(boids);

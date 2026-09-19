@@ -47,21 +47,46 @@ void placeBoids(const Options &margin, BoidSoA &boids, int size) {
     boids.push_back(i, x, y, vx, vy);
   }
 }
-void runParallelSoA(Grid &grid, BoidSoA &boids) {
-#pragma omp parallel for
-  for (int i = 0; i < static_cast<int>(boids.size()); ++i) {
-    float xpos_avg = 0.0f;
-    float ypos_avg = 0.0f;
-    float xvel_avg = 0.0f;
-    float yvel_avg = 0.0f;
-    float closeDx = 0.0f;
-    float closeDy = 0.0f;
-    int neighboring_boids = 0;
 
-    grid.findNeighbors(boids, i, xpos_avg, ypos_avg, xvel_avg, yvel_avg,
-                       neighboring_boids, closeDx, closeDy);
-    grid.applyRulesToBoid(boids, i, xpos_avg, ypos_avg, xvel_avg, yvel_avg,
-                          closeDx, closeDy, neighboring_boids);
+void runParallelSoASingleBoid(Grid &grid, BoidSoA &boids, int i) {
+  float xpos_avg = 0.0f;
+  float ypos_avg = 0.0f;
+  float xvel_avg = 0.0f;
+  float yvel_avg = 0.0f;
+  float closeDx = 0.0f;
+  float closeDy = 0.0f;
+  int neighboring_boids = 0;
+
+  grid.findNeighbors(boids, i, xpos_avg, ypos_avg, xvel_avg, yvel_avg,
+                     neighboring_boids, closeDx, closeDy);
+  grid.applyRulesToBoid(boids, i, xpos_avg, ypos_avg, xvel_avg, yvel_avg,
+                        closeDx, closeDy, neighboring_boids);
+}
+
+void runParallelSoA(Grid &grid, BoidSoA &boids,
+                    ScheudulingStrategyEnum schedulingStrategy) {
+  switch (schedulingStrategy) {
+  case ScheudulingStrategyEnum::Dynamic:
+#pragma omp parallel for schedule(dynamic, 4096)
+    for (int i = 0; i < static_cast<int>(boids.size()); ++i) {
+      runParallelSoASingleBoid(grid, boids, i);
+    }
+    // code block
+    break;
+  case ScheudulingStrategyEnum::Guided:
+#pragma omp parallel for schedule(guided, 4096)
+    for (int i = 0; i < static_cast<int>(boids.size()); ++i) {
+      runParallelSoASingleBoid(grid, boids, i);
+    }
+    // code block
+    break;
+  case ScheudulingStrategyEnum::Static:
+#pragma omp parallel for schedule(static, 4096)
+    for (int i = 0; i < static_cast<int>(boids.size()); ++i) {
+      runParallelSoASingleBoid(grid, boids, i);
+    }
+    break;
+    // code block
   }
   for (int i = 0; i < static_cast<int>(boids.size()); ++i) {
     grid.move(boids, i);
