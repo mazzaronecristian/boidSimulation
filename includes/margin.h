@@ -1,6 +1,6 @@
 #pragma once
 
-struct Margin {
+struct Options {
   int topMargin = 0;
   int rightMargin = 0;
   int bottomMargin = 0;

@@ -23,7 +23,7 @@ struct CellKeyHash {
 
 class Grid {
 private:
-  Margin margin_;
+  Options margin_;
 
   std::unordered_map<CellKey, std::vector<int>, CellKeyHash> cells;
   std::unordered_map<int, std::pair<CellKey, std::size_t>> locations;
@@ -61,7 +61,7 @@ private:
 public:
   int size() const { return static_cast<int>(locations.size()); }
 
-  const Margin &getMargin() const { return margin_; }
+  const Options &getMargin() const { return margin_; }
 
   double getVisualRange() const { return margin_.visualRange; }
   void setVisualRange(double value) { margin_.visualRange = value; }
@@ -87,7 +87,7 @@ public:
   int getMinSpeed() const { return margin_.minSpeed; }
   void setMinSpeed(int value) { margin_.minSpeed = value; }
 
-  explicit Grid(const Margin &margin) : margin_(margin) {}
+  explicit Grid(const Options &margin) : margin_(margin) {}
 
   Grid(int topMargin, int rightMargin, int bottomMargin, int leftMargin)
       : margin_{} {
@@ -98,9 +98,8 @@ public:
   }
 
   CellKey cellFrom(double x, double y) const {
-    return CellKey{
-        static_cast<int32_t>(std::floor(x / margin_.visualRange)),
-        static_cast<int32_t>(std::floor(y / margin_.visualRange))};
+    return CellKey{static_cast<int32_t>(std::floor(x / margin_.visualRange)),
+                   static_cast<int32_t>(std::floor(y / margin_.visualRange))};
   }
 
   void buildGrid(const BoidSoA &boids);

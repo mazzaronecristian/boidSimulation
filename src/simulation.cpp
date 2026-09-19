@@ -6,21 +6,21 @@
 
 namespace {
 
-void normalizeSpeed(const Margin &margin, float &vx, float &vy) {
+void normalizeSpeed(const Options &options, float &vx, float &vy) {
   const float speed = std::sqrt(vx * vx + vy * vy);
   if (speed == 0.0f) {
-    vx = static_cast<float>(margin.minSpeed);
+    vx = static_cast<float>(options.minSpeed);
     vy = 0.0f;
     return;
   }
 
-  if (speed < margin.minSpeed) {
-    vx = (vx / speed) * margin.minSpeed;
-    vy = (vy / speed) * margin.minSpeed;
+  if (speed < options.minSpeed) {
+    vx = (vx / speed) * options.minSpeed;
+    vy = (vy / speed) * options.minSpeed;
   }
-  if (speed > margin.maxSpeed) {
-    vx = (vx / speed) * margin.maxSpeed;
-    vy = (vy / speed) * margin.maxSpeed;
+  if (speed > options.maxSpeed) {
+    vx = (vx / speed) * options.maxSpeed;
+    vy = (vy / speed) * options.maxSpeed;
   }
 }
 
@@ -31,7 +31,7 @@ void initParallelSimulation(Grid &grid, BoidSoA &boids, int size) {
   grid.buildGrid(boids);
 }
 
-void placeBoids(const Margin &margin, BoidSoA &boids, int size) {
+void placeBoids(const Options &margin, BoidSoA &boids, int size) {
   boids.init(size);
   for (int i = 0; i < size; ++i) {
     float x = static_cast<float>(
@@ -68,11 +68,11 @@ void runParallelSoA(Grid &grid, BoidSoA &boids) {
   }
 }
 
-void runSequential(const Margin &margin, BoidSoA &boids) {
+void runSequential(const Options &options, BoidSoA &boids) {
   const int boidCount = static_cast<int>(boids.size());
-  const double visualRangeSquared = margin.visualRange * margin.visualRange;
+  const double visualRangeSquared = options.visualRange * options.visualRange;
   const float protectedRangeSquared =
-      margin.protectedRange * margin.protectedRange;
+      options.protectedRange * options.protectedRange;
 
   for (int i = 0; i < boidCount; ++i) {
     float xposAvg = 0.0f;
@@ -94,8 +94,8 @@ void runSequential(const Margin &margin, BoidSoA &boids) {
       const float dx = boidX - boids.x[j];
       const float dy = boidY - boids.y[j];
 
-      if (std::abs(dx) < margin.visualRange &&
-          std::abs(dy) < margin.visualRange) {
+      if (std::abs(dx) < options.visualRange &&
+          std::abs(dy) < options.visualRange) {
         const double squaredDistance =
             static_cast<double>(dx) * dx + static_cast<double>(dy) * dy;
 
@@ -123,29 +123,29 @@ void runSequential(const Margin &margin, BoidSoA &boids) {
       xvelAvg /= neighboringBoids;
       yvelAvg /= neighboringBoids;
 
-      nextVx = currentVx + (xposAvg - boidX) * margin.centeringFactor +
-               (xvelAvg - currentVx) * margin.matchingFactor;
-      nextVy = currentVy + (yposAvg - boidY) * margin.centeringFactor +
-               (yvelAvg - currentVy) * margin.matchingFactor;
+      nextVx = currentVx + (xposAvg - boidX) * options.centeringFactor +
+               (xvelAvg - currentVx) * options.matchingFactor;
+      nextVy = currentVy + (yposAvg - boidY) * options.centeringFactor +
+               (yvelAvg - currentVy) * options.matchingFactor;
     }
 
-    nextVx += closeDx * margin.avoidFactor;
-    nextVy += closeDy * margin.avoidFactor;
+    nextVx += closeDx * options.avoidFactor;
+    nextVy += closeDy * options.avoidFactor;
 
-    if (boidX < margin.leftMargin) {
-      nextVx += margin.turnFactor;
+    if (boidX < options.leftMargin) {
+      nextVx += options.turnFactor;
     }
-    if (boidX > margin.rightMargin) {
-      nextVx -= margin.turnFactor;
+    if (boidX > options.rightMargin) {
+      nextVx -= options.turnFactor;
     }
-    if (boidY > margin.bottomMargin) {
-      nextVy -= margin.turnFactor;
+    if (boidY > options.bottomMargin) {
+      nextVy -= options.turnFactor;
     }
-    if (boidY < margin.topMargin) {
-      nextVy += margin.turnFactor;
+    if (boidY < options.topMargin) {
+      nextVy += options.turnFactor;
     }
 
-    normalizeSpeed(margin, nextVx, nextVy);
+    normalizeSpeed(options, nextVx, nextVy);
 
     boids.vx[i] = nextVx;
     boids.vy[i] = nextVy;

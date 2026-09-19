@@ -6,7 +6,7 @@
 #include <raylib.h>
 #include <stdio.h>
 
-void drawParameters(const Margin &margin);
+void drawParameters(const Options &margin);
 void drawBoids(BoidSoA &boids);
 
 int main(int argc, char **argv) {
@@ -31,7 +31,7 @@ int main(int argc, char **argv) {
   printf("SCREEN_WIDTH %d\n", SCREEN_WIDTH);
   printf("SCREEN_HEIGHT %d\n", SCREEN_HEIGHT);
   //--------------------------------------------------------------------------------------
-  Margin simulationMargin;
+  Options simulationMargin;
   simulationMargin.topMargin = minY;
   simulationMargin.rightMargin = maxX;
   simulationMargin.bottomMargin = maxY;
@@ -79,7 +79,7 @@ int main(int argc, char **argv) {
   return 0;
 }
 
-void drawParameters(const Margin &margin) {
+void drawParameters(const Options &margin) {
 
   char paramsText[256];
   std::snprintf(paramsText, sizeof(paramsText),

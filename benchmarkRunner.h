@@ -18,8 +18,8 @@ inline Grid createBenchmarkGrid() {
               kMargin);
 }
 
-inline Margin createBenchmarkMargin() {
-  Margin margin;
+inline Options createBenchmarkMargin() {
+  Options margin;
   margin.topMargin = kMargin;
   margin.rightMargin = kScreenWidth - kMargin;
   margin.bottomMargin = kScreenHeight - kMargin;
@@ -78,7 +78,7 @@ public:
   void simulateStep() override { runSequential(margin_, boids_); }
 
 private:
-  Margin margin_;
+  Options margin_;
   BoidSoA boids_;
 };
 
