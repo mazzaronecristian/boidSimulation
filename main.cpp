@@ -61,7 +61,7 @@ int main(int argc, char **argv) {
     DrawFPS(10, 10);
     drawParameters(simulationMargin);
     // PARALLEL
-    runParallelSoA(grid, boids, ScheudulingStrategyEnum::Dynamic, 4096);
+    runParallelSoA(grid, boids, ScheudulingStrategyEnum::Dynamic, 1024);
     // SEQUENTIAL
     // runSequential(simulationMargin, boids);
     drawBoids(boids);
