@@ -50,14 +50,48 @@ int parseIterations(const char *value) {
   return static_cast<int>(parsed);
 }
 
-std::string buildOutputFileName(std::string_view mode, int iterations) {
+ScheudulingStrategyEnum parseSchedulingStrategy(std::string_view value) {
+  if (value == "static") {
+    return ScheudulingStrategyEnum::Static;
+  }
+  if (value == "dynamic") {
+    return ScheudulingStrategyEnum::Dynamic;
+  }
+  if (value == "guided") {
+    return ScheudulingStrategyEnum::Guided;
+  }
+  throw std::invalid_argument(
+      "scheduling must be one of: static, dynamic, guided.");
+}
+
+std::string_view
+schedulingStrategyName(ScheudulingStrategyEnum schedulingStrategy) {
+  switch (schedulingStrategy) {
+  case ScheudulingStrategyEnum::Static:
+    return "static";
+  case ScheudulingStrategyEnum::Dynamic:
+    return "dynamic";
+  case ScheudulingStrategyEnum::Guided:
+    return "guided";
+  }
+  throw std::invalid_argument("Unknown scheduling strategy.");
+}
+
+std::string buildOutputFileName(std::string_view mode, int iterations,
+                                ScheudulingStrategyEnum schedulingStrategy) {
   std::ostringstream fileName;
-  fileName << "benchmark_" << mode << '_' << iterations << ".csv";
+  fileName << "benchmark_" << mode;
+  if (mode == "parallel") {
+    fileName << '_' << schedulingStrategyName(schedulingStrategy);
+  }
+  fileName << '_' << iterations << ".csv";
   return fileName.str();
 }
 
-void runBenchmarks(std::string_view mode, int iterations) {
-  std::ofstream csvFile(buildOutputFileName(mode, iterations));
+void runBenchmarks(std::string_view mode, int iterations,
+                   ScheudulingStrategyEnum schedulingStrategy, int chunkSize) {
+  std::ofstream csvFile(
+      buildOutputFileName(mode, iterations, schedulingStrategy));
   if (!csvFile.is_open()) {
     throw std::runtime_error("Unable to open CSV output file.");
   }
@@ -68,13 +102,20 @@ void runBenchmarks(std::string_view mode, int iterations) {
   };
 
   writeLine("mode: " + std::string(mode));
+  if (mode == "parallel") {
+    writeLine("scheduling: " +
+              std::string(schedulingStrategyName(schedulingStrategy)));
+    writeLine("scheduling: " + std::to_string(chunkSize));
+  }
+
   writeLine("iterations: " + std::to_string(iterations));
   writeLine("boids,total_ms,avg_ms,stddev_ms");
 
   for (int boidCount : kBoidCounts) {
     std::srand(0);
 
-    auto runner = benchmark::createBenchmarkRunner(mode, boidCount);
+    auto runner = benchmark::createBenchmarkRunner(
+        mode, boidCount, schedulingStrategy, chunkSize);
     runner->init();
 
     RunningStats stats;
@@ -101,15 +142,20 @@ void runBenchmarks(std::string_view mode, int iterations) {
 } // namespace
 
 int main(int argc, char **argv) {
-  if (argc != 3) {
-    std::cerr << "Usage: benchmark <parallel|sequential> <n_iterations>\n";
+  if (argc != 3 && argc != 4 && argc != 5) {
+    std::cerr << "Usage: benchmark <parallel|sequential> <n_iterations> "
+                 "[static|dynamic|guided] <chunk_size>\n";
     return EXIT_FAILURE;
   }
 
   try {
     const std::string_view mode = argv[1];
     const int iterations = parseIterations(argv[2]);
-    runBenchmarks(mode, iterations);
+    const ScheudulingStrategyEnum schedulingStrategy =
+        argc == 4 ? parseSchedulingStrategy(argv[3])
+                  : ScheudulingStrategyEnum::Dynamic;
+    const int chunkSize = argc == 5 ? std::stoi(argv[4]) : 64;
+    runBenchmarks(mode, iterations, schedulingStrategy, chunkSize);
   } catch (const std::exception &exception) {
     std::cerr << exception.what() << '\n';
     return EXIT_FAILURE;

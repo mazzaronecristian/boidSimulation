@@ -15,7 +15,7 @@ run: build
 	./$(BUILD_DIR)/BoidSimulation
 
 run-benchmark: build
-	./benchmark $(MODE) $(N)
+	./benchmark $(MODE) $(N) $(SCHEDULING)
 
 clean:
 	rm -rf $(BUILD_DIR)

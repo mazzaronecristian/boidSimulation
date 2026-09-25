@@ -64,24 +64,24 @@ void runParallelSoASingleBoid(Grid &grid, BoidSoA &boids, int i) {
 }
 
 void runParallelSoA(Grid &grid, BoidSoA &boids,
-                    ScheudulingStrategyEnum schedulingStrategy) {
+                    ScheudulingStrategyEnum schedulingStrategy, int chunkSize) {
   switch (schedulingStrategy) {
   case ScheudulingStrategyEnum::Dynamic:
-#pragma omp parallel for schedule(dynamic, 4096)
+#pragma omp parallel for schedule(dynamic, chunkSize)
     for (int i = 0; i < static_cast<int>(boids.size()); ++i) {
       runParallelSoASingleBoid(grid, boids, i);
     }
     // code block
     break;
   case ScheudulingStrategyEnum::Guided:
-#pragma omp parallel for schedule(guided, 4096)
+#pragma omp parallel for schedule(guided, chunkSize)
     for (int i = 0; i < static_cast<int>(boids.size()); ++i) {
       runParallelSoASingleBoid(grid, boids, i);
     }
     // code block
     break;
   case ScheudulingStrategyEnum::Static:
-#pragma omp parallel for schedule(static, 4096)
+#pragma omp parallel for schedule(static, chunkSize)
     for (int i = 0; i < static_cast<int>(boids.size()); ++i) {
       runParallelSoASingleBoid(grid, boids, i);
     }

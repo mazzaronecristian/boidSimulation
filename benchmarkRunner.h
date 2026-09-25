@@ -46,8 +46,11 @@ private:
 
 class ParallelBenchmarkRunner final : public BenchmarkRunner {
 public:
-  explicit ParallelBenchmarkRunner(int boidCount)
-      : BenchmarkRunner(boidCount), grid_(createBenchmarkGrid()) {}
+  ParallelBenchmarkRunner(int boidCount,
+                          ScheudulingStrategyEnum schedulingStrategy,
+                          int chunkSize)
+      : BenchmarkRunner(boidCount), grid_(createBenchmarkGrid()),
+        schedulingStrategy_(schedulingStrategy), chunkSize_(chunkSize) {}
 
   const char *name() const override { return "parallel"; }
 
@@ -58,12 +61,14 @@ public:
   }
 
   void simulateStep() override {
-    runParallelSoA(grid_, boids_, ScheudulingStrategyEnum::Dynamic);
+    runParallelSoA(grid_, boids_, schedulingStrategy_, chunkSize_);
   }
 
 private:
   Grid grid_;
   BoidSoA boids_;
+  ScheudulingStrategyEnum schedulingStrategy_;
+  int chunkSize_;
 };
 
 class SequentialBenchmarkRunner final : public BenchmarkRunner {
@@ -86,15 +91,19 @@ private:
 };
 
 inline std::unique_ptr<BenchmarkRunner>
-createBenchmarkRunner(std::string_view mode, int boidCount) {
+createBenchmarkRunner(std::string_view mode, int boidCount,
+                      ScheudulingStrategyEnum schedulingStrategy,
+                      int chunkSize) {
   if (mode == "parallel") {
-    return std::make_unique<ParallelBenchmarkRunner>(boidCount);
+    return std::make_unique<ParallelBenchmarkRunner>(
+        boidCount, schedulingStrategy, chunkSize);
   }
   if (mode == "sequential") {
     return std::make_unique<SequentialBenchmarkRunner>(boidCount);
   }
   throw std::invalid_argument(
-      "Usage: benchmark <parallel|sequential> <n_iterations>");
+      "Usage: benchmark <parallel|sequential> <n_iterations> "
+      "[static|dynamic|guided]");
 }
 
 } // namespace benchmark

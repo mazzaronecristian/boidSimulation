@@ -7,5 +7,5 @@
 void initParallelSimulation(Grid &grid, BoidSoA &boids, int size);
 void placeBoids(const Options &margin, BoidSoA &boids, int size);
 void runParallelSoA(Grid &grid, BoidSoA &boids,
-                    ScheudulingStrategyEnum schedulingStrategy);
+                    ScheudulingStrategyEnum schedulingStrategy, int chunkSize);
 void runSequential(const Options &margin, BoidSoA &boids);
