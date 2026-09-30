@@ -3,6 +3,7 @@
 #include <array>
 #include <chrono>
 #include <cmath>
+#include <cstdio>
 #include <cstdlib>
 #include <exception>
 #include <fstream>
@@ -78,11 +79,17 @@ schedulingStrategyName(ScheudulingStrategyEnum schedulingStrategy) {
 }
 
 std::string buildOutputFileName(std::string_view mode, int iterations,
-                                ScheudulingStrategyEnum schedulingStrategy) {
+                                ScheudulingStrategyEnum schedulingStrategy,
+                                int chunkSize) {
   std::ostringstream fileName;
   fileName << "benchmark_" << mode;
   if (mode == "parallel") {
     fileName << '_' << schedulingStrategyName(schedulingStrategy);
+    if (chunkSize == -1) {
+      fileName << "_auto";
+    } else {
+      fileName << '_' << chunkSize;
+    }
   }
   fileName << '_' << iterations << ".csv";
   return fileName.str();
@@ -91,7 +98,7 @@ std::string buildOutputFileName(std::string_view mode, int iterations,
 void runBenchmarks(std::string_view mode, int iterations,
                    ScheudulingStrategyEnum schedulingStrategy, int chunkSize) {
   std::ofstream csvFile(
-      buildOutputFileName(mode, iterations, schedulingStrategy));
+      buildOutputFileName(mode, iterations, schedulingStrategy, chunkSize));
   if (!csvFile.is_open()) {
     throw std::runtime_error("Unable to open CSV output file.");
   }
@@ -101,14 +108,14 @@ void runBenchmarks(std::string_view mode, int iterations,
     csvFile << line << '\n';
   };
 
-  writeLine("mode: " + std::string(mode));
-  if (mode == "parallel") {
-    writeLine("scheduling: " +
-              std::string(schedulingStrategyName(schedulingStrategy)));
-    writeLine("scheduling: " + std::to_string(chunkSize));
-  }
-
-  writeLine("iterations: " + std::to_string(iterations));
+  // writeLine("mode: " + std::string(mode));
+  // if (mode == "parallel") {
+  //   writeLine("scheduling: " +
+  //             std::string(schedulingStrategyName(schedulingStrategy)));
+  //   writeLine("scheduling: " + std::to_string(chunkSize));
+  // }
+  //
+  // writeLine("iterations: " + std::to_string(iterations));
   writeLine("boids,total_ms,avg_ms,stddev_ms");
 
   for (int boidCount : kBoidCounts) {
@@ -154,7 +161,7 @@ int main(int argc, char **argv) {
     const ScheudulingStrategyEnum schedulingStrategy =
         argc == 4 ? parseSchedulingStrategy(argv[3])
                   : ScheudulingStrategyEnum::Dynamic;
-    const int chunkSize = argc == 5 ? std::stoi(argv[4]) : 64;
+    const int chunkSize = argc == 5 ? std::stoi(argv[4]) : -1;
     runBenchmarks(mode, iterations, schedulingStrategy, chunkSize);
   } catch (const std::exception &exception) {
     std::cerr << exception.what() << '\n';

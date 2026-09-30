@@ -63,8 +63,35 @@ void runParallelSoASingleBoid(Grid &grid, BoidSoA &boids, int i) {
                         closeDx, closeDy, neighboring_boids);
 }
 
-void runParallelSoA(Grid &grid, BoidSoA &boids,
-                    ScheudulingStrategyEnum schedulingStrategy, int chunkSize) {
+void runParallelWithAutoChunkSize(Grid &grid, BoidSoA &boids,
+                                  ScheudulingStrategyEnum schedulingStrategy) {
+  switch (schedulingStrategy) {
+  case ScheudulingStrategyEnum::Dynamic:
+#pragma omp parallel for schedule(dynamic)
+    for (int i = 0; i < static_cast<int>(boids.size()); ++i) {
+      runParallelSoASingleBoid(grid, boids, i);
+    }
+    // code block
+    break;
+  case ScheudulingStrategyEnum::Guided:
+#pragma omp parallel for schedule(guided)
+    for (int i = 0; i < static_cast<int>(boids.size()); ++i) {
+      runParallelSoASingleBoid(grid, boids, i);
+    }
+    // code block
+    break;
+  case ScheudulingStrategyEnum::Static:
+#pragma omp parallel for schedule(static)
+    for (int i = 0; i < static_cast<int>(boids.size()); ++i) {
+      runParallelSoASingleBoid(grid, boids, i);
+    }
+    break;
+    // code block
+  }
+}
+void runParallelWithDefinedChunkSize(Grid &grid, BoidSoA &boids,
+                                     ScheudulingStrategyEnum schedulingStrategy,
+                                     int chunkSize) {
   switch (schedulingStrategy) {
   case ScheudulingStrategyEnum::Dynamic:
 #pragma omp parallel for schedule(dynamic, chunkSize)
@@ -87,6 +114,15 @@ void runParallelSoA(Grid &grid, BoidSoA &boids,
     }
     break;
     // code block
+  }
+}
+
+void runParallelSoA(Grid &grid, BoidSoA &boids,
+                    ScheudulingStrategyEnum schedulingStrategy, int chunkSize) {
+  if (chunkSize == -1) {
+    runParallelWithAutoChunkSize(grid, boids, schedulingStrategy);
+  } else {
+    runParallelWithDefinedChunkSize(grid, boids, schedulingStrategy, chunkSize);
   }
   for (int i = 0; i < static_cast<int>(boids.size()); ++i) {
     grid.move(boids, i);

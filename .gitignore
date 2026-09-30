@@ -3,3 +3,5 @@ build/
 .cache/
 benchmark
 benchmark_*.csv
+__pycache__/
+.conda-env/
