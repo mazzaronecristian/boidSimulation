@@ -1,5 +1,6 @@
 #include "benchmarkRunner.h"
 
+#include <algorithm>
 #include <array>
 #include <chrono>
 #include <cmath>
@@ -92,6 +93,10 @@ std::string buildOutputFileName(std::string_view mode, int iterations,
     }
   }
   fileName << '_' << iterations << ".csv";
+
+  std::istringstream iss(fileName.str());
+  std::cout << schedulingStrategyName(schedulingStrategy);
+  std::cout << iss.rdbuf();
   return fileName.str();
 }
 
@@ -159,9 +164,9 @@ int main(int argc, char **argv) {
     const std::string_view mode = argv[1];
     const int iterations = parseIterations(argv[2]);
     const ScheudulingStrategyEnum schedulingStrategy =
-        argc == 4 ? parseSchedulingStrategy(argv[3])
+        argc >= 4 ? parseSchedulingStrategy(argv[3])
                   : ScheudulingStrategyEnum::Dynamic;
-    const int chunkSize = argc == 5 ? std::stoi(argv[4]) : -1;
+    const int chunkSize = argc >= 5 ? std::stoi(argv[4]) : -1;
     runBenchmarks(mode, iterations, schedulingStrategy, chunkSize);
   } catch (const std::exception &exception) {
     std::cerr << exception.what() << '\n';
